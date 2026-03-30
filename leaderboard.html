@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gibraltar Gaels Masters Leaderboard</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #113322;
+      color: #ffffff;
+    }
+
+    .page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    .board-header {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    .board-kicker {
+      color: #d8b85a;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+    }
+
+    .board-title {
+      color: #f3df8a;
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin: 0;
+    }
+
+    .board-subtitle {
+      color: #dfe8df;
+      font-size: 0.95rem;
+      margin-top: 8px;
+    }
+
+    .board-shell {
+      border: 4px solid #d8b85a;
+      background: #163b29;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .board-topbar {
+      display: grid;
+      grid-template-columns: 90px 1.4fr repeat(5, 1fr) 90px;
+      background: #0d2418;
+      border-bottom: 3px solid #d8b85a;
+    }
+
+    .board-topbar div {
+      color: #f3df8a;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 12px 10px;
+      text-align: center;
+      border-right: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .board-topbar div:nth-child(2) {
+      text-align: left;
+      padding-left: 14px;
+    }
+
+    .board-topbar div:last-child {
+      border-right: none;
+    }
+
+    .board-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1150px;
+      border-collapse: collapse;
+      table-layout: fixed;
+      background: #163b29;
+    }
+
+    td {
+      border-right: 1px solid rgba(255, 255, 255, 0.14);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 12px 10px;
+      font-size: 0.92rem;
+      text-align: center;
+      color: #ffffff;
+      vertical-align: middle;
+    }
+
+    tr:nth-child(even) td {
+      background: #1c472f;
+    }
+
+    td.name {
+      text-align: left;
+      font-weight: 700;
+      padding-left: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    td.rank,
+    td.total {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    tr.first-place td {
+      background: #234f32;
+      color: #f3df8a;
+      font-weight: 700;
+    }
+
+    tr.second-place td {
+      background: #214730;
+    }
+
+    tr.third-place td {
+      background: #1f432d;
+    }
+
+    .board-footer {
+      text-align: center;
+      color: #dfe8df;
+      font-size: 0.85rem;
+      margin-top: 12px;
+    }
+
+    .loading,
+    .error {
+      padding: 28px 16px;
+      text-align: center;
+      color: #ffffff;
+      font-size: 1rem;
+    }
+
+    @media (max-width: 768px) {
+      .page {
+        padding: 16px 10px 28px;
+      }
+
+      .board-title {
+        font-size: 1.45rem;
+      }
+
+      .board-subtitle {
+        font-size: 0.85rem;
+      }
+
+      .board-topbar div {
+        font-size: 0.72rem;
+        padding: 10px 8px;
+      }
+
+      td {
+        font-size: 0.82rem;
+        padding: 10px 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="board-header">
+      <div class="board-kicker">Gibraltar Gaels</div>
+      <h1 class="board-title">Masters Leaderboard</h1>
+      <div class="board-subtitle">Selections and total points</div>
+    </div>
+
+    <div class="board-shell">
+      <div class="board-topbar">
+        <div>Pos</div>
+        <div>Name</div>
+        <div>A</div>
+        <div>B</div>
+        <div>C</div>
+        <div>D</div>
+        <div>E</div>
+        <div>Total</div>
+      </div>
+
+      <div class="board-wrap">
+        <div id="leaderboard" class="loading">Loading leaderboard...</div>
+      </div>
+    </div>
+
+    <div class="board-footer">
+      Live from the published Google Sheet
+    </div>
+  </div>
+
+  <script>
+    function parseCSVLine(line) {
+      const result = [];
+      let current = "";
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+
+        if (char === '"') {
+          if (inQuotes && nextChar === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === "," && !inQuotes) {
+          result.push(current);
+          current = "";
+        } else {
+          current += char;
+        }
+      }
+
+      result.push(current);
+      return result;
+    }
+
+    async function loadLeaderboard() {
+      const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQtmHxiXLA6_CNu9E8DDYMsWSo1Es4nJ5Jk4-KGM08-OiTYxeG0LNDa7UmRn5Azon2y1iDVowv9--u7/pub?gid=1858004008&single=true&output=csv";
+
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        const rows = text.trim().split("\n").map(parseCSVLine);
+        const data = rows.slice(1).filter(row => row.length >= 12);
+
+        data.sort((a, b) => (parseFloat(b[11]) || 0) - (parseFloat(a[11]) || 0));
+
+        let html = "<table><tbody>";
+
+        data.forEach((row, index) => {
+          let rowClass = "";
+          if (index === 0) rowClass = "first-place";
+          else if (index === 1) rowClass = "second-place";
+          else if (index === 2) rowClass = "third-place";
+
+          html += `
+            <tr class="${rowClass}">
+              <td class="rank">${index + 1}</td>
+              <td class="name">${row[0] || ""}</td>
+              <td>${row[1] || "-"}</td>
+              <td>${row[2] || "-"}</td>
+              <td>${row[3] || "-"}</td>
+              <td>${row[4] || "-"}</td>
+              <td>${row[5] || "-"}</td>
+              <td class="total">${row[11] || 0}</td>
+            </tr>
+          `;
+        });
+
+        html += "</tbody></table>";
+        document.getElementById("leaderboard").innerHTML = html;
+      } catch (error) {
+        console.error(error);
+        document.getElementById("leaderboard").innerHTML =
+          '<div class="error">Unable to load leaderboard right now.</div>';
+      }
+    }
+
+    loadLeaderboard();
+  </script>
+</body>
+</html>
